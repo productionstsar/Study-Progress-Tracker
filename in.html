@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ascend Habit Tracker | Game Mode</title>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --card-bg: #161616;
+            --accent-green: #2ecc71;
+            --text-main: #ffffff;
+            --text-dim: #888;
+            --border: #222;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'EB Garamond', serif, system-ui;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 95%;
+            max-width: 1200px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+        }
+
+        h1 { font-size: 2.5rem; letter-spacing: 2px; margin-bottom: 5px; }
+        .quote { font-style: italic; color: var(--text-dim); }
+
+        /* Stats Dashboard */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .progress-circle {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: conic-gradient(var(--accent-green) 0%, #222 0%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px auto;
+            position: relative;
+        }
+
+        .progress-circle::after {
+            content: attr(data-percent);
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            background: var(--card-bg);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* Habit Table */
+        .table-container {
+            overflow-x: auto;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        th { color: var(--text-dim); font-weight: normal; font-size: 0.8rem; }
+
+        .habit-name {
+            text-align: left;
+            min-width: 150px;
+            font-weight: bold;
+        }
+
+        /* Checkbox Styling */
+        input[type="checkbox"] {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 1px solid #444;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+        }
+
+        input[type="checkbox"]:checked {
+            background-color: var(--accent-green);
+            border-color: var(--accent-green);
+            box-shadow: 0 0 10px rgba(46, 204, 113, 0.4);
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            color: black;
+            font-size: 12px;
+            position: absolute;
+            left: 3px;
+            top: -1px;
+        }
+
+        .btn-add {
+            margin-top: 20px;
+            background: none;
+            border: 1px dashed var(--text-dim);
+            color: var(--text-dim);
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .btn-add:hover { border-color: var(--accent-green); color: var(--accent-green); }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Daily Study Progress</h1>
+            <p class="quote">"Inspiration comes only during work."</p>
+        </header>
+
+        <div class="dashboard">
+            <div class="stat-card">
+                <div>Monthly Progress</div>
+                <div id="main-circle" class="progress-circle" data-percent="0%"></div>
+            </div>
+            <div class="stat-card">
+                <div>Current Streak</div>
+                <h2 id="streak-count" style="color: var(--accent-green);">0 Days</h2>
+            </div>
+            <div class="stat-card">
+                <div>Habits Completed</div>
+                <h2 id="total-completed">0</h2>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="habit-table">
+                <thead>
+                    <tr id="header-row">
+                        <th class="habit-name">My Habits</th>
+                        <!-- Days 1-31 will be injected here -->
+                    </tr>
+                </thead>
+                <tbody id="habit-body">
+                    <!-- Habits will be injected here -->
+                </tbody>
+            </table>
+        </div>
+
+        <button class="btn-add" onclick="addNewHabit()">+ Add New Habit</button>
+    </div>
+
+    <script>
+        const DAYS_IN_MONTH = 31;
+        let habits = JSON.parse(localStorage.getItem('habitData')) || [
+            { name: "Wake up at 05:00 ⏰", data: new Array(DAYS_IN_MONTH).fill(false) },
+            { name: "Gym 💪", data: new Array(DAYS_IN_MONTH).fill(false) },
+            { name: "Reading / Learning 📖", data: new Array(DAYS_IN_MONTH).fill(false) },
+        ];
+
+        function initTable() {
+            const headerRow = document.getElementById('header-row');
+            const habitBody = document.getElementById('habit-body');
+            
+            // Create headers 1-31
+            for (let i = 1; i <= DAYS_IN_MONTH; i++) {
+                const th = document.createElement('th');
+                th.innerText = i;
+                headerRow.appendChild(th);
+            }
+
+            renderHabits();
+        }
+
+        function renderHabits() {
+            const habitBody = document.getElementById('habit-body');
+            habitBody.innerHTML = '';
+
+            habits.forEach((habit, habitIndex) => {
+                const tr = document.createElement('tr');
+                
+                // Habit Name Cell
+                const nameTd = document.createElement('td');
+                nameTd.className = 'habit-name';
+                nameTd.innerText = habit.name;
+                tr.appendChild(nameTd);
+
+                // Checkbox Cells
+                habit.data.forEach((checked, dayIndex) => {
+                    const td = document.createElement('td');
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.checked = checked;
+                    cb.onchange = () => toggleHabit(habitIndex, dayIndex);
+                    td.appendChild(cb);
+                    tr.appendChild(td);
+                });
+
+                habitBody.appendChild(tr);
+            });
+            updateStats();
+        }
+
+        function toggleHabit(hIdx, dIdx) {
+            habits[hIdx].data[dIdx] = !habits[hIdx].data[dIdx];
+            saveAndRefresh();
+        }
+
+        function addNewHabit() {
+            const name = prompt("Enter habit name:");
+            if (name) {
+                habits.push({ name: name, data: new Array(DAYS_IN_MONTH).fill(false) });
+                saveAndRefresh();
+            }
+        }
+
+        function saveAndRefresh() {
+            localStorage.setItem('habitData', JSON.stringify(habits));
+            renderHabits();
+        }
+
+        function updateStats() {
+            let totalPossible = habits.length * DAYS_IN_MONTH;
+            let totalChecked = 0;
+
+            habits.forEach(h => {
+                totalChecked += h.data.filter(d => d).length;
+            });
+
+            const percent = totalPossible > 0 ? Math.round((totalChecked / totalPossible) * 100) : 0;
+            
+            // Update Dashboard
+            const circle = document.getElementById('main-circle');
+            circle.setAttribute('data-percent', percent + '%');
+            circle.style.background = `conic-gradient(var(--accent-green) ${percent}%, #222 ${percent}%)`;
+            
+            document.getElementById('total-completed').innerText = totalChecked;
+            
+            // Simple Streak Logic (Checks if today's index has any completions)
+            // In a real app, you'd link this to the actual calendar date.
+            document.getElementById('streak-count').innerText = (percent > 0 ? "🔥 ON TRACK" : "0 Days");
+        }
+
+        // Initialize
+        initTable();
+    </script>
+</body>
+</html>
